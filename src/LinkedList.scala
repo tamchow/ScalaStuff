@@ -244,12 +244,12 @@ object LinkedList {
 
 object FunctionalDataStructures {
 
+  import LinkedLists.LinkedList
+
   /**
     * Implements a functional stack
     */
   type Stack[T] = LinkedList[T]
-
-  import LinkedLists.LinkedList
 
   /**
     * Implements a functional double-ended queue
