@@ -3,7 +3,7 @@
   */
 
 import java.awt.Color
-import javax.swing.{JFrame, JPanel}
+import javax.swing.{JFrame, JPanel, WindowConstants}
 
 import org.math.plot._
 
@@ -22,6 +22,7 @@ object Scatter3D {
   def main(args: Array[String]): Unit = {
     val plot = loadDataFromCSV("D:/Programming/Projects/FractalGenerator/output.csv")
     val frame = new JFrame("Fractal3D")
+    frame.setDefaultCloseOperation(WindowConstants.EXIT_ON_CLOSE)
     frame.setSize(900,900)
     frame.setContentPane(plot)
     frame.setVisible(true)
