@@ -1,4 +1,6 @@
 import scala.util.Random
+import scala.math.BigInt
+import scala.io
 
 /**
   * Converts an integral numeral to words - Size-unlimited!
@@ -6,7 +8,7 @@ import scala.util.Random
 object NumToWords {
 
   //@formatter:off
-  private val (negative, and, latinAnd, empty)= ("negative ", "and ", "et", "")
+  private val (negative, and, latinAnd, empty) = ("negative ", "and ", "et", "")
 
   implicit def NumberRepresentationToNumber(number: NumberRepresentation): BigInt = number.value
 
@@ -15,27 +17,28 @@ object NumToWords {
   implicit def BigIntToInt(number: BigInt): Int = number.intValue()
 
   implicit def IntToBigInt(number: Int): BigInt = BigInt(number)
+
   private val ones = IndexedSeq("", "one ", "two ", "three ", "four ", "five ",
-                                "six ", "seven ", "eight ", "nine ", "ten ",
-                                "eleven ", "twelve ", "thirteen ", "fourteen ", "fifteen ",
-                                "sixteen ", "seventeen ", "eighteen ", "nineteen ")
+    "six ", "seven ", "eight ", "nine ", "ten ",
+    "eleven ", "twelve ", "thirteen ", "fourteen ", "fifteen ",
+    "sixteen ", "seventeen ", "eighteen ", "nineteen ")
   private val tens = IndexedSeq("", "", "twenty ", "thirty ", "forty ", "fifty ",
-                                "sixty ", "seventy ", "eighty ", "ninety ")
+    "sixty ", "seventy ", "eighty ", "ninety ")
   private val (thousand, hundred, ten, nineteen, nine, three, two, one, zero) =
-              (NumberRepresentation(1000,"thousand "), NumberRepresentation(100,"hundred "),
-                NumberRepresentation(10, ones(10)), NumberRepresentation(19, ones(19)),
-                NumberRepresentation(9, ones(9)), NumberRepresentation(3, ones(3)),
-                NumberRepresentation(2, ones(2)), NumberRepresentation(1, ones(1)),
-                NumberRepresentation(0, "zero"))
+    (NumberRepresentation(1000, "thousand "), NumberRepresentation(100, "hundred "),
+      NumberRepresentation(10, ones(10)), NumberRepresentation(19, ones(19)),
+      NumberRepresentation(9, ones(9)), NumberRepresentation(3, ones(3)),
+      NumberRepresentation(2, ones(2)), NumberRepresentation(1, ones(1)),
+      NumberRepresentation(0, "zero"))
   private val latinSingles = IndexedSeq("", "m", "b", "tr", "quadr", "quin", "sext", "sept", "oct", "non")
   private val latinOnes = IndexedSeq("", "un", "duo", "tre", "quattor", "quin", "sex", "sept", "octo", "novem")
   private val latinTens = IndexedSeq("", "dec", "vigint", "trigint", "quadragint", "quinquagint", "sexagint",
-                                      "septuagint", "octogint", "nonagint")
+    "septuagint", "octogint", "nonagint")
   private val latinHundred = NumberRepresentation(hundred, "cent")
   private val (internationalMultipleSuffix, thousandOffset, hundredOffset) = ("illion ", two, one)
-  private val indianRoots = IndexedSeq("lakh ","crore ","arab ","kharab ","neel ","padma ","shankh ")
+  private val indianRoots = IndexedSeq("lakh ", "crore ", "arab ", "kharab ", "neel ", "padma ", "shankh ")
   private val indianMultiples = indianRoots.zipWithIndex map { case (root, index) =>
-    NumberRepresentation(thousand * (hundred pow  BigInt(index) + hundredOffset), root)
+    NumberRepresentation(thousand * (hundred pow BigInt(index) + hundredOffset), root)
   }
 
   def doIfPredicateMatches[A](predicate: A => Boolean, op: A => String, list: Seq[A]): (String, Boolean) = {
@@ -50,6 +53,7 @@ object NumToWords {
       println(s"${idx + 1}->$value")
     }
   }
+
   //@formatter:on
 
   private def generateInternationalMultiples(upperLimit: BigInt) = one to upperLimit map { index =>
@@ -177,7 +181,6 @@ object NumToWords {
     println(s"Number of digits = ${countDigits(num)}")
     println(s"Input in words = ${numToWords(num, useIndianNumerals, rootLimit)}")
     retry()
-    //test(5000)
   }
 
   case class NumberRepresentation(value: BigInt, name: String) {

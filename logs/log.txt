@@ -1,5 +1,0 @@
----- IntelliJ IDEA coverage runner ---- 
-sampling ...
-include patterns:
-exclude patterns:
-Use Indian numeral system? Y/N: > 

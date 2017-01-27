@@ -6,4 +6,12 @@
   <component name="ProjectRootManager" version="2" languageLevel="JDK_1_8" default="true" project-jdk-name="1.8" project-jdk-type="JavaSDK">
     <output url="file://$PROJECT_DIR$/out" />
   </component>
+  <component name="ScaladocSettings">
+    <option name="outputDir" value="D:\Programming\Projects\ScalaStuff\doc\" />
+    <option name="additionalFlags" value="" />
+    <option name="maxHeapSize" value="512" />
+    <option name="docTitle" value="ScalaStuff documentation" />
+    <option name="verbose" value="false" />
+    <option name="openInBrowser" value="true" />
+  </component>
 </project>
