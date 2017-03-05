@@ -11,7 +11,7 @@ object Scatter3D {
   def loadDataFromCSV(csvPath: String): JPanel = {
     val data = scala.io.Source.fromFile(csvPath).getLines().map(_.split(",").map(_.trim.toDouble).toSeq)
     val (x, y, z) = (data map {
-      case Seq(x, y, z) => (x, y, z)
+      case Seq(x_, y_, z_) => (x_, y_, z_)
     }).toArray.unzip3
     val colors = z map (x => new Color(Color.HSBtoRGB(x.toFloat, 1.0f, 0.5f)))
     val plot = new Plot3DPanel()
@@ -20,10 +20,10 @@ object Scatter3D {
   }
 
   def main(args: Array[String]): Unit = {
-    val plot = loadDataFromCSV("D:/Programming/Projects/FractalGenerator/output.csv")
+    val plot = loadDataFromCSV(args.headOption.getOrElse("D:/Programming/Projects/FractalGenerator/output.csv"))
     val frame = new JFrame("Fractal3D")
     frame.setDefaultCloseOperation(WindowConstants.EXIT_ON_CLOSE)
-    frame.setSize(900,900)
+    frame.setSize(900, 900)
     frame.setContentPane(plot)
     frame.setVisible(true)
   }
