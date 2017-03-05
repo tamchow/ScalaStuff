@@ -7,7 +7,7 @@ object LinkedLists {
 
   sealed case class ::[+T](headItem: T, rest: LinkedList[T]) extends LinkedList[T]
 
-  sealed class LinkedList[+T] extends Ordered[LinkedList[_]] {
+  sealed abstract class LinkedList[+T] extends Ordered[LinkedList[_]] {
 
     final override lazy val toString: String = {
       @tailrec
@@ -25,7 +25,7 @@ object LinkedLists {
       @tailrec
       def calcSize[B >: T](accumulator: Int, list: LinkedList[B]): Int = list match {
         case `[]` => accumulator
-        case x :: xs => calcSize(accumulator + 1, xs)
+        case _ :: xs => calcSize(accumulator + 1, xs)
       }
 
       calcSize(0, this)
@@ -220,13 +220,15 @@ object LinkedList {
   import LinkedLists.{LinkedList, `[]`}
 
   def apply[T](items: T*): LinkedList[T] = {
-    @tailrec
-    def createList(index: Int, accumulator: LinkedList[T]): LinkedList[T] = index match {
-      case -1 => accumulator
-      case other => createList(other - 1, items(other) :: accumulator)
-    }
+    if (items.isEmpty) `[]` else {
+      @tailrec
+      def createList(index: Int, accumulator: LinkedList[T]): LinkedList[T] = index match {
+        case -1 => accumulator
+        case other => createList(other - 1, items(other) :: accumulator)
+      }
 
-    createList(items.length - 1, `[]`)
+      createList(items.length - 1, `[]`)
+    }
   }
 
   def fromList[T](list: List[T]): LinkedList[T] = list match {
