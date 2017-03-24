@@ -1,3 +1,5 @@
+import in.tamchow.LinearAlgebra.{LinearAlgebra, Matrix}
+
 import scala.annotation.tailrec
 import scala.util.Either
 import scalax.chart.api._
@@ -103,6 +105,8 @@ object Interpolation {
   }
 
   def main(args: Array[String]): Unit = {
-    visualize(Seq(1, 2, 4, 3, 5), Seq(1, 4, 16, 9, 25), None)(-2.0, 6.0, 0.5)
+    println(Matrix.fromString("[[1, 2, 3]]").transpose.toPrintableString)
+    println((Matrix.fromString("[[1, 2], [1, 2]]") * Matrix.fromString("[[1, 2], [1, 2]]")).toPrintableString)
+    //visualize(Seq(1, 2, 4, 3, 5), Seq(1, 4, 16, 9, 25), None)(-2.0, 6.0, 0.5)
   }
 }
