@@ -11,7 +11,7 @@ object LinearAlgebra {
     }
   }
 
-  def getSafe[A](action: => Either[Throwable, A]): A = {
+  implicit def getSafe[A](action: => Either[Throwable, A]): A = {
     action match {
       case Left(exception) => throw exception
       case Right(data) => data
@@ -21,10 +21,13 @@ object LinearAlgebra {
 
 case class Matrix[T](private val data: IndexedSeq[IndexedSeq[T]])(implicit numeric: Numeric[T]) {
 
+  private lazy val notSquareUndefinedOperationMessage = s"Matrix of $rows rows & $columns columns is not square, %s cannot be defined"
+
   import LinearAlgebra.getSafe
   import numeric._
 
-  lazy val (rows, columns) = (data.length, data.headOption.getOrElse(IndexedSeq()).length)
+  lazy val dimension: (Int, Int) = (data.length, data.headOption.getOrElse(IndexedSeq()).length)
+  lazy val (rows, columns) = dimension
 
   override lazy val toString: String = data map {
     row => row mkString("[", ", ", "]")
@@ -34,6 +37,8 @@ case class Matrix[T](private val data: IndexedSeq[IndexedSeq[T]])(implicit numer
     row => row mkString("[", ", ", "]")
   } mkString("", "\n", "\n")
 
+  def apply(i: Int, j: Int): T = get(i, j)
+
   /**
     * Accesses an element at (i, j)
     *
@@ -41,9 +46,7 @@ case class Matrix[T](private val data: IndexedSeq[IndexedSeq[T]])(implicit numer
     * @param j column index, 1 - based
     * @return the element @ (i, j)
     */
-  def apply(i: Int, j: Int): Either[IndexOutOfBoundsException, T] = checkBoundsException(data(i)(j))(i, j)
-
-  def get(i: Int, j: Int): T = getSafe(this (i, j))
+  def get(i: Int, j: Int): Either[IndexOutOfBoundsException, T] = checkBoundsException(data(i - 1)(j - 1))(i, j)
 
   /**
     * Updates an element at (i, j)
@@ -61,17 +64,26 @@ case class Matrix[T](private val data: IndexedSeq[IndexedSeq[T]])(implicit numer
 
   lazy val isSquare: Boolean = rows == columns
 
-  def +(matrix: Matrix[T]): Matrix[T] = {
-    Matrix(for ((ourRow, theirRow) <- data.zip(matrix.data)) yield {
-      for ((ourElement, theirElement) <- ourRow.zip(theirRow)) yield {
-        theirElement + ourElement
-      }
-    })
+  def sum(matrix: Matrix[T]): Either[UnsupportedOperationException, Matrix[T]] = {
+    if (matrix.rows == rows || matrix.columns == columns)
+      Right(Matrix(
+        for ((ourRow, theirRow) <- data.zip(matrix.data)) yield {
+          for ((ourElement, theirElement) <- ourRow.zip(theirRow)) yield {
+            theirElement + ourElement
+          }
+        }))
+    else
+      Left(new UnsupportedOperationException(
+        s"Unequal matrix dimensions, cannot add (${matrix.rows} to $rows rows, ${matrix.columns} to $columns columns"))
   }
+
+  def +(matrix: Matrix[T]): Matrix[T] = sum(matrix)
 
   def unary_- = Matrix(data.map(row => row.map(element => -element)))
 
-  def -(matrix: Matrix[T]): Matrix[T] = this + (-matrix)
+  def difference(matrix: Matrix[T]): Either[UnsupportedOperationException, Matrix[T]] = sum(-matrix)
+
+  def -(matrix: Matrix[T]): Matrix[T] = difference(matrix)
 
   def product(matrix: Matrix[T]): Either[IllegalArgumentException, Matrix[T]] = {
     if (this.columns != matrix.rows)
@@ -85,7 +97,7 @@ case class Matrix[T](private val data: IndexedSeq[IndexedSeq[T]])(implicit numer
     }
   }
 
-  def *(matrix: Matrix[T]): Matrix[T] = getSafe(product(matrix))
+  def *(matrix: Matrix[T]): Matrix[T] = product(matrix)
 
   lazy val transpose: Matrix[T] = {
     Matrix(IndexedSeq.tabulate(columns) { row =>
@@ -94,6 +106,36 @@ case class Matrix[T](private val data: IndexedSeq[IndexedSeq[T]])(implicit numer
       }
     })
   }
+
+  def coFactor(i: Int, j: Int): Either[IndexOutOfBoundsException, Matrix[T]] = {
+    checkBoundsException(Matrix(
+      for ((row, rowIndex) <- data.zipWithIndex if rowIndex != (i - 1)) yield {
+        (for ((element, columnIndex) <- row.zipWithIndex if columnIndex != (j - 1)) yield element).toIndexedSeq
+      }
+    ))(i, j)
+  }
+
+  lazy val determinant: Either[UnsupportedOperationException, Double] =
+    if (isSquare) {
+      Right(
+        getSafe(order) match {
+          case 1 => this (1, 1).toDouble
+          case 2 => (this (1, 1) * this (2, 2) - this (1, 2) * this (2, 1)).toDouble
+          case x => //expand along top row
+            IndexedSeq.tabulate(x) {
+              column => (if (column % 2 != 0) -1 else 1) * this (1, column + 1).toDouble * coFactor(1, column + 1).determinant
+            }.sum
+        }
+      )
+    }
+    else
+      Left(new UnsupportedOperationException(notSquareUndefinedOperationMessage.format("determinant")))
+
+  lazy val order: Either[UnsupportedOperationException, Int] =
+    if (isSquare)
+      Right(rows)
+    else
+      Left(new UnsupportedOperationException(notSquareUndefinedOperationMessage.format("order")))
 
   lazy val (rowVectors, columnVectors) = (data, transpose.data)
 
@@ -129,7 +171,7 @@ object Matrix {
         (if (data.startsWith("[[") && data.endsWith("]]"))
           data.substring(1, data.length - 1) // trim matrix-delimiting square brackets
         else data).split("\\],?\\s+\\[") map {
-          // splitted into rows
+          // split into rows
           row =>
             row.filter(character => !(character == '[' || character == ']')) // remove stray delimiters
               .split(",?\\s+") // split into elements
