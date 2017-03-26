@@ -105,8 +105,8 @@ object Interpolation {
   }
 
   def main(args: Array[String]): Unit = {
-    println(Matrix.fromString("[[1, 2, 3]]").transpose.toPrintableString)
-    println((Matrix.fromString("[[1, 2], [1, 2]]") * Matrix.fromString("[[1, 2], [1, 2]]")).toPrintableString)
+    val matrix = Matrix.fromString("[[1, 2, 3], [3, 2, 1], [2, 1, 3]]")
+    println(matrix.determinant)
     //visualize(Seq(1, 2, 4, 3, 5), Seq(1, 4, 16, 9, 25), None)(-2.0, 6.0, 0.5)
   }
 }
