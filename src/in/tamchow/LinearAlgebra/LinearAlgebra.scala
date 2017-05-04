@@ -1,5 +1,7 @@
 package in.tamchow.LinearAlgebra
 
+import scala.language.implicitConversions
+
 object LinearAlgebra {
 
   implicit class ScalarMatrixInterOp[T](scalar: T)(implicit evidence: Numeric[T]) {
@@ -93,6 +95,7 @@ case class Matrix[T](private val data: IndexedSeq[IndexedSeq[T]])(implicit numer
     * @param evidence Implicit parameter containing type which allows numeric operations on `scalar`
     * @tparam B The type of `scalar`
     * @return the product of this matrix with the scalar `scalar`
+    * @see [[Matrix.*[B](scalar:B)*]]
     */
   def product[B](scalar: B)(implicit evidence: Numeric[B]): Matrix[Double] = {
     val scalarAsDouble = scalar.toString.toDouble
