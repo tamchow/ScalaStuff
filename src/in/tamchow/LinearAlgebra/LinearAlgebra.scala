@@ -1,8 +1,14 @@
 package in.tamchow.LinearAlgebra
 
 object LinearAlgebra {
-  implicit def scalarToMatrix[T](scalar: T)(implicit numeric: Numeric[T]): Matrix[T] =
-    new Matrix(IndexedSeq(IndexedSeq(scalar)))
+
+  implicit class ScalarMatrixInterOp[T](scalar: T)(implicit evidence: Numeric[T]) {
+    def product[B: Numeric](matrix: Matrix[B]): Matrix[Double] = matrix product scalar
+
+    def *[B: Numeric](matrix: Matrix[B]): Matrix[Double] = product(matrix)
+
+    def toMatrix: Matrix[T] = Matrix(IndexedSeq(IndexedSeq(scalar)))
+  }
 
   def doSafe[A, B](action: => Either[Throwable, A])(onSuccess: A => B): B = {
     action match {
@@ -11,12 +17,7 @@ object LinearAlgebra {
     }
   }
 
-  implicit def getSafe[A](action: => Either[Throwable, A]): A = {
-    action match {
-      case Left(exception) => throw exception
-      case Right(data) => data
-    }
-  }
+  implicit def getSafe[A](action: => Either[Throwable, A]): A = doSafe(action)(identity _)
 }
 
 case class Matrix[T](private val data: IndexedSeq[IndexedSeq[T]])(implicit numeric: Numeric[T]) {
@@ -26,8 +27,8 @@ case class Matrix[T](private val data: IndexedSeq[IndexedSeq[T]])(implicit numer
   import LinearAlgebra.getSafe
   import numeric._
 
-  lazy val dimension: (Int, Int) = (data.length, data.headOption.getOrElse(IndexedSeq()).length)
-  lazy val (rows, columns) = dimension
+  lazy val dimensions: (Int, Int) = (data.length, data.headOption.getOrElse(IndexedSeq()).length)
+  lazy val (rows, columns) = dimensions
 
   override lazy val toString: String = data map {
     row => row mkString("[", ", ", "]")
@@ -85,6 +86,28 @@ case class Matrix[T](private val data: IndexedSeq[IndexedSeq[T]])(implicit numer
 
   def -(matrix: Matrix[T]): Matrix[T] = difference(matrix)
 
+  /**
+    * Product of a matrix with a scalar. Overloaded with matrix product for convenience
+    *
+    * @param scalar   The scalar to multiply this matrix by
+    * @param evidence Implicit parameter containing type which allows numeric operations on `scalar`
+    * @tparam B The type of `scalar`
+    * @return the product of this matrix with the scalar `scalar`
+    */
+  def product[B](scalar: B)(implicit evidence: Numeric[B]): Matrix[Double] = {
+    val scalarAsDouble = scalar.toString.toDouble
+    Matrix(
+      for (row <- rowVectors) yield for (element <- row) yield element.toDouble() * scalarAsDouble
+    )
+  }
+
+  /**
+    * Operator alias for [[Matrix.product[B](scalar:B)*]]
+    *
+    * @see [[Matrix.product[B](scalar:B)*]]
+    */
+  def *[B](scalar: B)(implicit evidence: Numeric[B]): Matrix[Double] = product(scalar)
+
   def product(matrix: Matrix[T]): Either[IllegalArgumentException, Matrix[T]] = {
     if (this.columns != matrix.rows)
       Left(new IllegalArgumentException(
@@ -115,21 +138,33 @@ case class Matrix[T](private val data: IndexedSeq[IndexedSeq[T]])(implicit numer
     ))(i, j)
   }
 
-  lazy val determinant: Either[UnsupportedOperationException, Double] =
-    if (isSquare) {
-      Right(
-        getSafe(order) match {
-          case 1 => this (1, 1).toDouble
-          case 2 => (this (1, 1) * this (2, 2) - this (1, 2) * this (2, 1)).toDouble
-          case x => //expand along top row
-            IndexedSeq.tabulate(x) {
-              column => (if (column % 2 != 0) -1 else 1) * this (1, column + 1).toDouble * coFactor(1, column + 1).determinant
-            }.sum
+  lazy val determinant: Either[UnsupportedOperationException, T] =
+    errorIfNotSquare(
+      getSafe(order) match {
+        case 1 => this (1, 1)
+        case 2 => this (1, 1) * this (2, 2) - this (1, 2) * this (2, 1)
+        case _ => expandAlongTopRow.sum
+      },
+      "determinant")
+
+  private def errorIfNotSquare[A](action: => A, operation: String): Either[UnsupportedOperationException, A] =
+    if (isSquare) Right(action) else Left(new UnsupportedOperationException(notSquareUndefinedOperationMessage.format(operation)))
+
+  lazy val expandAlongTopRow: IndexedSeq[T] = IndexedSeq.tabulate(order) {
+    // Craziness mixing "one" and "1" is to avoid even more "implicit" confusion
+    column => this (1, column + 1) * (if (column % 2 != 0) -one else one) * coFactor(1, column + 1).determinant
+  }
+
+  lazy val matrixOfMinors: Matrix[T] =
+    Matrix(IndexedSeq.tabulate(rows) {
+      row =>
+        IndexedSeq.tabulate(columns) {
+          column => coFactor(row + 1, column + 1).determinant // Won't throw any exceptions! Promise!
         }
-      )
-    }
-    else
-      Left(new UnsupportedOperationException(notSquareUndefinedOperationMessage.format("determinant")))
+    })
+
+  lazy val inverse: Either[UnsupportedOperationException, Matrix[Double]] =
+    errorIfNotSquare(matrixOfMinors.transpose * (one.toDouble / getSafe(determinant).toDouble), "inverse")
 
   lazy val order: Either[UnsupportedOperationException, Int] =
     if (isSquare)
@@ -156,6 +191,8 @@ case class Matrix[T](private val data: IndexedSeq[IndexedSeq[T]])(implicit numer
 
 object Matrix {
 
+  import LinearAlgebra.getSafe
+
   def nullMatrix(rows: Int, columns: Int): Matrix[Double] =
     Matrix(IndexedSeq.tabulate(rows) { _ =>
       IndexedSeq.tabulate(columns) { _ => 0.0 }
@@ -180,7 +217,7 @@ object Matrix {
     }
   }
 
-  def fromString(data: String): Matrix[Double] = LinearAlgebra.getSafe(Matrix(data))
+  def fromString(data: String): Matrix[Double] = getSafe(Matrix(data))
 
   def identityMatrix(order: Int): Matrix[Double] =
     Matrix(IndexedSeq.tabulate(order) { row =>
