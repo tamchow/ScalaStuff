@@ -11,6 +11,15 @@ object SeqHelpers {
     */
   implicit class RicherSeq[A](input: Seq[A]) {
     /**
+      * Operator alias of [[RicherSeq.removeAt]]
+      *
+      * @param index The index of the element to remove
+      * @return A copy of this [[scala.Seq]] with the element at index `index` removed
+      * @see [[RicherSeq.removeAt]]
+      */
+    def -(index: Int): Seq[A] = removeAt(index)
+
+    /**
       * Removes the element at the given index
       *
       * @param index The index of the element to remove
@@ -21,18 +30,10 @@ object SeqHelpers {
         throw new IndexOutOfBoundsException(s"$index of ${input.length}")
       else
         input match {
+          // Optimize for collections which have a `remove` method already
           case mutable: collection.mutable.Buffer[A] => mutable.remove(index); mutable
-          case _ => input.zipWithIndex.filterNot(tuple => tuple._2 == index).unzip._1
+          case _ => input.indices.filter(_ != index).map(i => input(i))
         }
-
-    /**
-      * Operator alias of [[RicherSeq.removeAt]]
-      *
-      * @param index The index of the element to remove
-      * @return A copy of this [[scala.Seq]] with the element at index `index` removed
-      * @see [[RicherSeq.removeAt]]
-      */
-    def -(index: Int): Seq[A] = removeAt(index)
 
     /**
       * Compares this [[scala.Seq]] with another for equality disregarding order
@@ -52,8 +53,6 @@ object SeqHelpers {
 object Combinatorics {
 
   import SeqHelpers._
-
-  private def upTo[A](producer: (Seq[A], Int) => Seq[Seq[A]])(input: Seq[A], maxLength: Int): Seq[Seq[A]] = (0 to maxLength).flatMap(length => producer(input, length)).distinct
 
   private val lengthOutOfRangeErrorMessage: String = "Length out of range"
 
@@ -93,20 +92,6 @@ object Combinatorics {
     */
   def rearrange[A](input: Seq[A], onlyPermutations: Boolean = false, padIfNotLongEnough: Boolean = false): Seq[Seq[A]] = rearrange(input, input.length, onlyPermutations, padIfNotLongEnough)
 
-  // Legacy code - keep it for nostalgia
-  /*input match {
-    case Seq() => Set(Seq())
-    case Seq(x) => Set(Seq(x))
-    case Seq(x, y) => Set(Seq(x, y), Seq(y, x))
-    case other =>
-      val allStarts = for(i <- 0 until other.length) yield (other(i) +: (if (onlyPermutations) (other - i) else other))
-      (for(started <- allStarts) yield {
-        started match {
-          case head +: tail => (for(subtail <- rearrange(tail)) yield head +: subtail).toSet
-        }
-      }).flatten.distinct
-    }*/
-
   /**
     * Pads the `input` [[scala.Seq]] to length `length` by repeating its contents in order.
     *
@@ -123,8 +108,26 @@ object Combinatorics {
     else
       input ++: pad(input, length - input.length)
 
+  // Legacy code - keep it for nostalgia
+  /*input match {
+    case Seq() => Set(Seq())
+    case Seq(x) => Set(Seq(x))
+    case Seq(x, y) => Set(Seq(x, y), Seq(y, x))
+    case other =>
+      val allStarts = for(i <- 0 until other.length) yield (other(i) +: (if (onlyPermutations) (other - i) else other))
+      (for(started <- allStarts) yield {
+        started match {
+          case head +: tail => (for(subtail <- rearrange(tail)) yield head +: subtail).toSet
+        }
+      }).flatten.distinct
+    }*/
+
   def rearrangementsUpTo[A](input: Seq[A], maxLength: Int, onlyPermutations: Boolean = false, padIfNotLongEnough: Boolean): Seq[Seq[A]] =
     upTo(rearrange(_: Seq[A], _: Int, onlyPermutations, padIfNotLongEnough))(input, maxLength)
+
+  def subSequencesUpTo[A](input: Seq[A], maxLength: Int): Seq[Seq[A]] = upTo(subSequences(_: Seq[A], _: Int))(input, maxLength)
+
+  private def upTo[A](producer: (Seq[A], Int) => Seq[Seq[A]])(input: Seq[A], maxLength: Int): Seq[Seq[A]] = (0 to maxLength).flatMap(length => producer(input, length)).distinct
 
   def subSequences[A](input: Seq[A], length: Int): Seq[Seq[A]] =
     if (length < 0 || length > input.length)
@@ -133,6 +136,4 @@ object Combinatorics {
       Seq(Seq())
     else
       (for (i <- input.indices) yield input.slice(i, i + length)).distinct
-
-  def subSequencesUpTo[A](input: Seq[A], maxLength: Int): Seq[Seq[A]] = upTo(subSequences(_: Seq[A], _: Int))(input, maxLength)
 }
