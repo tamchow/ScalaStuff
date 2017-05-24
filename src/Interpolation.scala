@@ -1,4 +1,4 @@
-import in.tamchow.LinearAlgebra.{LinearAlgebra, Matrix}
+import in.tamchow.LinearAlgebra.LinearAlgebra._
 
 import scala.annotation.tailrec
 import scala.util.Either

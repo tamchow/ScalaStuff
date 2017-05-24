@@ -1,4 +1,5 @@
 import scala.annotation.tailrec
+import scala.collection.mutable
 import scala.util.Random
 import scala.util.matching.Regex
 
@@ -8,8 +9,18 @@ import scala.util.matching.Regex
 object Encryption {
   lazy val runLengthEncoding: Regex = """(\d+)(".*?")""".r
 
-  def frequencyMap(data: String): Seq[(Char, Int)] =
-    data.toSet[Char].map(character => (character, data.count(x => x == character))).toSeq.sortBy(element => element._2)
+  def frequencyMap(data: String): Map[Char, Int] = {
+    var uniqueItems = mutable.HashMap[Char, Int]()
+    for (character <- data) {
+      if(uniqueItems.contains(character)){
+        uniqueItems(character) = uniqueItems(character) + 1
+      }
+      else {
+        uniqueItems += (character -> 0)
+      }
+    }
+    uniqueItems.toMap
+  }
 
   def substituent(seed: Long = System.nanoTime()): IndexedSeq[Char] =
     new Random(seed).shuffle((Char.MinValue to Char.MaxValue).filter(Character.isISOControl _))

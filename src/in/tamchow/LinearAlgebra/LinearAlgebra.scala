@@ -213,7 +213,7 @@ object LinearAlgebra {
                 .map(_.toDouble).toIndexedSeq
           }))
 
-    def apply[T](data: IndexedSeq[IndexedSeq[T]])(implicit numeric: Numeric[T]): Either[IllegalArgumentException, Matrix[T]] = {
+    def createMatrix[T](data: IndexedSeq[IndexedSeq[T]])(implicit numeric: Numeric[T]): Either[IllegalArgumentException, Matrix[T]] = {
       val matrix = new Matrix(data)
       if (!matrix.isValidMatrix) Left(new IllegalArgumentException("Matrix may not have jagged rows"))
       else Right(matrix)
@@ -245,10 +245,10 @@ object LinearAlgebra {
 
     def -(other: Vector): Vector = subtract(other)
 
-    def crossProduct(other: Vector): Vector = Vector(Matrix(IndexedSeq(IndexedSeq.fill(dimensions)(1), components, other.components)).expandAlongTopRow)
+    def crossProduct(other: Vector): Vector = Vector(Matrix(IndexedSeq(IndexedSeq.fill(dimensions)(1.0), components, other.components)).expandAlongTopRow)
 
     def dotProduct(other: Vector): Double =
-      components.zipAll(other.components, 0, 0)
+      components.zipAll(other.components, 0.0, 0.0)
         .map { case (x1, x2) => x1 * x2 }
         .sum
 
