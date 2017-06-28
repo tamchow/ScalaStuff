@@ -5,7 +5,7 @@ import scala.annotation.tailrec
   */
 object LinkedLists {
 
-  sealed case class ::[+T](headItem: T, rest: LinkedList[T]) extends LinkedList[T]
+  final case class ::[+T](headItem: T, rest: LinkedList[T]) extends LinkedList[T]
 
   sealed abstract class LinkedList[+T] extends Ordered[LinkedList[_]] {
 
@@ -39,26 +39,44 @@ object LinkedLists {
     final lazy val head: Option[T] = first
     final lazy val first: Option[T] = this (0)
 
-    /*override def equals(obj: Any): Boolean = obj match {
-      case otherList: LinkedList[_] => (otherList eq this) || measureEquality(otherList)
-      case _ => false
-    }*/
     final lazy val last: Option[T] = this (length - 1)
-    final private lazy val commonSuperclassOfElements: Class[_] = this match {
-      case `[]` => classOf[Nothing]
+    final private lazy val commonSuperclassOfElements: Class[_] = {
+      val EmptyListType = `[]`
+      this match {
+        case EmptyListType => classOf[Nothing]
+        case other =>
+          type Result = Class[_]
+
+          @tailrec def findCommonSuperclass(current: LinkedList[_] = other,
+                                            commonSuperclass: Result = other.head.get.getClass): Result = {
+            current match {
+              case EmptyListType => commonSuperclass
+              case x :: xs
+                if x.getClass == commonSuperclass || x.getClass.getSuperclass == commonSuperclass =>
+                findCommonSuperclass(xs, commonSuperclass)
+              case _ :: xs => findCommonSuperclass(xs, commonSuperclass.getSuperclass)
+            }
+          }
+
+          findCommonSuperclass()
+      }
+    }
+
+    final def map[R](mapper: T => R): LinkedList[R] = this match {
+      case `[]` => `[]`
       case other =>
-        @tailrec
-        def findCommonSuperclass(current: LinkedList[_], commonSuperclass: Class[_]): Class[_] = current match {
-          case `[]` => commonSuperclass
-          case x :: xs
-            if x.getClass == commonSuperclass || x.getClass.getSuperclass == commonSuperclass =>
-            findCommonSuperclass(xs, commonSuperclass)
-          case _ :: xs => findCommonSuperclass(xs, commonSuperclass.getSuperclass)
+        type Result = LinkedList[R]
+
+        @tailrec def mapImpl(input: LinkedList[T] = other,
+                             result: Result = `[]`): Result = input match {
+          case `[]` => result
+          case x :: xs => mapImpl(xs, mapper(x) :: result)
         }
 
-        findCommonSuperclass(other, other.head.get.getClass)
+        mapImpl()
     }
-    override lazy val hashCode: Int = toString hashCode
+
+    override lazy val hashCode: Int = toString.##
 
     final override def compare(that: LinkedList[_]): Int = toString compareTo (that toString)
 
@@ -87,23 +105,16 @@ object LinkedLists {
 
     final def constructed[B >: T](item: B): LinkedList[B] = new ::(item, this)
 
-    @tailrec
-    final def measureEquality[B >: T](that: LinkedList[B]): Boolean = (this, that) match {
-      case (`[]`, `[]`) => true
-      case (theseX :: _, thoseX :: _) if theseX != thoseX => false
-      case (_ :: theseXs, _ :: thoseXs) => theseXs measureEquality thoseXs
-    }
-
     final def toList: List[T] = this match {
       case `[]` => Nil
       case other =>
         @tailrec
-        def createList[A](current: LinkedList[A], accumulator: List[A]): List[A] = current match {
+        def createList[A](current: LinkedList[A], accumulator: List[A] = Nil): List[A] = current match {
           case `[]` => accumulator
           case x :: xs => createList(xs, x :: accumulator)
         }
 
-        createList(other, Nil) reverse
+        createList(other) reverse
     }
 
     final def ^-[B >: T](item: B): LinkedList[T] = removedItemFirst(item)
@@ -145,13 +156,15 @@ object LinkedLists {
     final def -(Index: Int): LinkedList[T] = deletedAt(Index)
 
     final def deletedAt(Index: Int): LinkedList[T] = Index match {
-      case i if Index < 0 || Index >= length => this
+      case _ if Index < 0 || Index >= length => this
       case _ =>
         this match {
           case `[]` => `[]`
           case _ =>
+            type Result = LinkedList[T]
+
             @tailrec
-            def createList(idxAccumulator: Int, listAccumulator: LinkedList[T]): LinkedList[T] = idxAccumulator match {
+            def createList(idxAccumulator: Int, listAccumulator: Result): Result = idxAccumulator match {
               case -1 => listAccumulator
               case Index => createList(idxAccumulator - 1, listAccumulator)
               case otherIdx => createList(idxAccumulator - 1, unwrapAndApply(this (otherIdx), listAccumulator)(cons))
@@ -171,10 +184,10 @@ object LinkedLists {
       case `[]` => `[]`
       case other =>
         @tailrec
-        def search(accumlator: Int, list: LinkedList[B], resultAccumulator: LinkedList[Int]): LinkedList[Int] = list match {
+        def search(accumulator: Int, list: LinkedList[B], resultAccumulator: LinkedList[Int]): LinkedList[Int] = list match {
           case `[]` => resultAccumulator
-          case x :: xs if x == item => search(accumlator + 1, xs, accumlator :: resultAccumulator)
-          case _ :: xs => search(accumlator + 1, xs, resultAccumulator)
+          case x :: xs if x == item => search(accumulator + 1, xs, accumulator :: resultAccumulator)
+          case _ :: xs => search(accumulator + 1, xs, resultAccumulator)
         }
 
         ~search(0, other, `[]`)
@@ -184,20 +197,23 @@ object LinkedLists {
 
     final def appended[B >: T](item: B): LinkedList[B] = ~new ::(item, ~this)
 
-    final def apply(idx: Int): Option[T] = if (idx < 0 || idx >= length) None else
-      this match {
-        case `[]` => None
-        case other =>
-          @tailrec
-          def search(accumlator: Int, list: LinkedList[T]): Option[T] = list match {
-            case `[]` => None
-            case x :: _ if accumlator == idx => Some(x)
-            case _ :: xs => search(accumlator + 1, xs);
-          }
+    final def apply(idx: Int): Option[T] =
+      if (idx < 0 || idx >= length)
+        None
+      else
+        this match {
+          case `[]` => None
+          case other =>
+            @tailrec
+            def search(accumulator: Int, list: LinkedList[T]): Option[T] = list match {
+              case `[]` => None
+              case x :: _ if accumulator == idx => Some(x)
+              case _ :: xs => search(accumulator + 1, xs);
+            }
 
-          search(0, other)
+            search(0, other)
 
-      }
+        }
 
     @tailrec
     final private def createReversedList[B >: T](index: Int, accumulator: LinkedList[B]): LinkedList[B] = index match {
@@ -317,26 +333,23 @@ object FunctionalDataStructures {
 
 object Main {
 
+  import scala.io.StdIn.{readChar => rc, readLine => rl}
   import LinkedLists._
 
-  import io.StdIn.{readChar => rc, readLine => rl}
-
-  def demoFunction(op: Char, item: String, linkedList: LinkedList[String]): Unit = {
+  def demoFunction(op: Char, item: String, linkedList: LinkedList[String] = `[]`): Unit =
     op match {
-      case '+' => val newList = item :: linkedList; println(newList.toString + " " + newList.toList.toString); demoFunction(rc, rl, newList)
+      case '+' => val newList = item :: linkedList; println(newList.toString + " => " + newList.toList); demoFunction(rc, rl, newList)
       case '-' => val newList = linkedList ^- item; println(newList); demoFunction(rc, rl, newList)
       case '^' => val newList = linkedList ^ item; println(newList); demoFunction(rc, rl, linkedList)
       case _ => println(linkedList)
     }
-    assert(linkedList.toString.hashCode == linkedList.hashCode)
-  }
 
   def main(args: Array[String]): Unit = {
     println(
-      """Usage:
-        |1. Add: + <Value>
-        |2. Delete: - <Value>
-        |3. Search: ^ <Value>""".stripMargin)
-    demoFunction(io.StdIn.readChar(), io.StdIn.readLine(), `[]`)
+             """Usage:
+               |1. Add: + <Value>
+               |2. Delete: - <Value>
+               |3. Search: ^ <Value>""".stripMargin)
+    demoFunction(rc(), rl())
   }
 }

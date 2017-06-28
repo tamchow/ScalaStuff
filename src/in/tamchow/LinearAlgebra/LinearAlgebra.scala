@@ -26,7 +26,7 @@ object LinearAlgebra {
 
   import Enhancements._
 
-  case class Matrix[T: Numeric[T]](private val data: IndexedSeq[IndexedSeq[T]])(implicit numeric: Numeric[T]) {
+  case class Matrix[T](private val data: IndexedSeq[IndexedSeq[T]])(implicit numeric: Numeric[T]) {
 
     private lazy val notSquareUndefinedOperationMessage = s"Matrix of $rows rows & $columns columns is not square, %s cannot be defined"
 
