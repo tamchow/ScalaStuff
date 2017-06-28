@@ -151,7 +151,7 @@ object NumToWords {
         (useIndianNumerals, BigInt(io.StdIn readLine()))
       } else (useIndianNumerals, zero)
     } catch {
-      case nfe: NumberFormatException => promptedReadFlags()
+      case _: NumberFormatException => promptedReadFlags()
     }
 
     def promptedReadInput(): BigInt = try {
@@ -161,7 +161,7 @@ object NumToWords {
         case _ => prompt(); promptedReadInput()
       }
     } catch {
-      case nfe: NumberFormatException => prompt(); promptedReadInput()
+      case _: NumberFormatException => prompt(); promptedReadInput()
     }
 
     @annotation.tailrec
