@@ -42,26 +42,9 @@ object SeqHelpers {
       * @tparam B The type of elements in `other`
       * @return `true` if this [[scala.Seq]] contains all the elements of `other` and they are equal in length, `false` otherwise
       */
-    def equalsIgnoreOrder[B >: A](other: Seq[B]): Boolean = input.length == other.length && other.forall(element => input contains element)
-
-    def flattenAnyTo2D: Seq[_] = {
-      val acc = collection.mutable.ListBuffer[Any]()
-      for (item <- input) item match {
-        case seq: Seq[_] =>
-          val subAcc = collection.mutable.ListBuffer[Any]()
-          for (seqItem <- seq) seqItem match {
-            case subSeq: Seq[_] =>
-              for (subSeqItem <- subSeq) {
-                subAcc += subSeqItem
-              }
-            case subSingle => subAcc += subSingle
-          }
-          acc += subAcc.toList
-        case single =>
-          acc += single
-      }
-      acc.toList
-    }
+    def equalsIgnoreOrder[B >: A](other: Seq[B]): Boolean =
+      input.length == other.length &&
+      other.forall(element => input contains element)
   }
 
 }
@@ -146,35 +129,17 @@ object Combinatorics {
       }).flatten.distinct
     }*/
 
-  // I HATE MYSELF! WHY! OH WHY!
-  def cartesianProduct(vectors: Seq[Seq[_]]): Seq[Seq[_]] = {
-    def cartesianProduct2(leftVector: Seq[_], vector2: Seq[_]): Seq[Seq[_]] = {
-      val wrapItemsInSeq = (_: Seq[_]).map(IndexedSeq(_))
-      if (leftVector.isEmpty && vector2.isEmpty)
-        Seq(IndexedSeq())
-      else if (vector2.isEmpty)
-             wrapItemsInSeq(leftVector)
-      else if (leftVector.isEmpty)
-             wrapItemsInSeq(vector2)
-      else
-        (for {
-          element1 <- leftVector
-          element2 <- vector2
-        } yield IndexedSeq(element1, element2)).distinct
-    }
+  def cartesianProduct[S](vectors: Traversable[S]*): Traversable[Seq[_]] =
+    cartesianProductMultiType(vectors)
 
-    def cartesianProduct2Flatten(leftVector: Seq[_], vector2: Seq[_]): Seq[Seq[_]] =
-      cartesianProduct2(leftVector.flattenAnyTo2D, vector2).flattenAnyTo2D.asInstanceOf[Seq[Seq[Any]]]
+  def cartesianProductMultiType(vectors: Traversable[Traversable[_]]): Traversable[Seq[_]] = {
+    def cartesianProduct2[A, B](leftVector: IndexedSeq[IndexedSeq[A]], vector2: Traversable[B]): IndexedSeq[IndexedSeq[_]] =
+      for {
+        superSequence <- leftVector
+        element <- vector2
+      } yield superSequence :+ element
 
-    val length = vectors.length
-    if (vectors.isEmpty)
-      Seq(IndexedSeq())
-    else if (length == 1)
-           cartesianProduct2(vectors.head, vectors.head)
-    else if (length == 2)
-           cartesianProduct2(vectors(0), vectors(1))
-    else
-      vectors.reduceLeft(cartesianProduct2Flatten(_, _)).distinct.asInstanceOf[Seq[Seq[Any]]]
+    vectors.foldLeft(IndexedSeq(IndexedSeq[Any]()))(cartesianProduct2(_, _)).distinct
   }
 
   def rearrangementsUpTo[A](input: Seq[A], maxLength: Int,
