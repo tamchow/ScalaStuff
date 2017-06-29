@@ -9,7 +9,7 @@ object SeqHelpers {
     *
     * @param input the base [[scala.Seq]] to enhance
     */
-  implicit class RicherSeq[A](input: Seq[A]) {
+  implicit final class RicherSeq[A](private val input: Seq[A]) extends AnyVal {
     /**
       * Operator alias of [[RicherSeq.removeAt]]
       *
@@ -43,6 +43,25 @@ object SeqHelpers {
       * @return `true` if this [[scala.Seq]] contains all the elements of `other` and they are equal in length, `false` otherwise
       */
     def equalsIgnoreOrder[B >: A](other: Seq[B]): Boolean = input.length == other.length && other.forall(element => input contains element)
+
+    def flattenAnyTo2D: Seq[_] = {
+      val acc = collection.mutable.ListBuffer[Any]()
+      for (item <- input) item match {
+        case seq: Seq[_] =>
+          val subAcc = collection.mutable.ListBuffer[Any]()
+          for (seqItem <- seq) seqItem match {
+            case subSeq: Seq[_] =>
+              for (subSeqItem <- subSeq) {
+                subAcc += subSeqItem
+              }
+            case subSingle => subAcc += subSingle
+          }
+          acc += subAcc.toList
+        case single =>
+          acc += single
+      }
+      acc.toList
+    }
   }
 
 }
@@ -67,13 +86,15 @@ object Combinatorics {
     * @tparam A The type of elements of `input`
     * @return A list of all possible distinct rearrangements of the elements of `input`
     */
-  def rearrange[A](input: Seq[A], length: Int, onlyPermutations: Boolean, padIfNotLongEnough: Boolean): Seq[Seq[A]] =
+  def rearrange[A](input: Seq[A], length: Int,
+                   onlyPermutations: Boolean,
+                   padIfNotLongEnough: Boolean): Seq[Seq[A]] =
     if (length < 0 || (!padIfNotLongEnough && length > input.length))
       throw new IllegalArgumentException(lengthOutOfRangeErrorMessage)
     else if (padIfNotLongEnough && length > input.length)
-      rearrange(pad(input, length), length, onlyPermutations, padIfNotLongEnough = false)
+           rearrange(pad(input, length), length, onlyPermutations, padIfNotLongEnough = false)
     else if (length == 0)
-      Seq(Seq())
+           Seq(Seq())
     else
       (for (i <- input.indices) yield {
         val head = input(i)
@@ -90,7 +111,10 @@ object Combinatorics {
     * @tparam A The type of elements of `input`
     * @return A list of all possible distinct rearrangements of the elements of `input`
     */
-  def rearrange[A](input: Seq[A], onlyPermutations: Boolean = false, padIfNotLongEnough: Boolean = false): Seq[Seq[A]] = rearrange(input, input.length, onlyPermutations, padIfNotLongEnough)
+  def rearrange[A](input: Seq[A],
+                   onlyPermutations: Boolean = false,
+                   padIfNotLongEnough: Boolean = false): Seq[Seq[A]] =
+    rearrange(input, input.length, onlyPermutations, padIfNotLongEnough)
 
   /**
     * Pads the `input` [[scala.Seq]] to length `length` by repeating its contents in order.
@@ -104,7 +128,7 @@ object Combinatorics {
     if (length < 0)
       throw new IllegalArgumentException(lengthOutOfRangeErrorMessage)
     else if (length <= input.length)
-      input take length
+           input take length
     else
       input ++: pad(input, length - input.length)
 
@@ -122,18 +146,53 @@ object Combinatorics {
       }).flatten.distinct
     }*/
 
-  def rearrangementsUpTo[A](input: Seq[A], maxLength: Int, onlyPermutations: Boolean = false, padIfNotLongEnough: Boolean): Seq[Seq[A]] =
+  // I HATE MYSELF! WHY! OH WHY!
+  def cartesianProduct(vectors: Seq[Seq[_]]): Seq[Seq[_]] = {
+    def cartesianProduct2(leftVector: Seq[_], vector2: Seq[_]): Seq[Seq[_]] = {
+      val wrapItemsInSeq = (_: Seq[_]).map(IndexedSeq(_))
+      if (leftVector.isEmpty && vector2.isEmpty)
+        Seq(IndexedSeq())
+      else if (vector2.isEmpty)
+             wrapItemsInSeq(leftVector)
+      else if (leftVector.isEmpty)
+             wrapItemsInSeq(vector2)
+      else
+        (for {
+          element1 <- leftVector
+          element2 <- vector2
+        } yield IndexedSeq(element1, element2)).distinct
+    }
+
+    def cartesianProduct2Flatten(leftVector: Seq[_], vector2: Seq[_]): Seq[Seq[_]] =
+      cartesianProduct2(leftVector.flattenAnyTo2D, vector2).flattenAnyTo2D.asInstanceOf[Seq[Seq[Any]]]
+
+    val length = vectors.length
+    if (vectors.isEmpty)
+      Seq(IndexedSeq())
+    else if (length == 1)
+           cartesianProduct2(vectors.head, vectors.head)
+    else if (length == 2)
+           cartesianProduct2(vectors(0), vectors(1))
+    else
+      vectors.reduceLeft(cartesianProduct2Flatten(_, _)).distinct.asInstanceOf[Seq[Seq[Any]]]
+  }
+
+  def rearrangementsUpTo[A](input: Seq[A], maxLength: Int,
+                            onlyPermutations: Boolean = false,
+                            padIfNotLongEnough: Boolean): Seq[Seq[A]] =
     upTo(rearrange(_: Seq[A], _: Int, onlyPermutations, padIfNotLongEnough))(input, maxLength)
 
-  def subSequencesUpTo[A](input: Seq[A], maxLength: Int): Seq[Seq[A]] = upTo(subSequences(_: Seq[A], _: Int))(input, maxLength)
+  def subSequencesUpTo[A](input: Seq[A], maxLength: Int): Seq[Seq[A]] =
+    upTo(subSequences(_: Seq[A], _: Int))(input, maxLength)
 
-  private def upTo[A](producer: (Seq[A], Int) => Seq[Seq[A]])(input: Seq[A], maxLength: Int): Seq[Seq[A]] = (0 to maxLength).flatMap(length => producer(input, length)).distinct
+  private def upTo[A](producer: (Seq[A], Int) => Seq[Seq[A]])(input: Seq[A], maxLength: Int): Seq[Seq[A]] =
+    (0 to maxLength).flatMap(length => producer(input, length)).distinct
 
   def subSequences[A](input: Seq[A], length: Int): Seq[Seq[A]] =
     if (length < 0 || length > input.length)
       throw new IllegalArgumentException(lengthOutOfRangeErrorMessage)
     else if (length == 0)
-      Seq(Seq())
+           Seq(Seq())
     else
       (for (i <- input.indices) yield input.slice(i, i + length)).distinct
 }
