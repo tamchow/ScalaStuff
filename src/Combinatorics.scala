@@ -142,16 +142,19 @@ object Combinatorics {
     vectors.foldLeft(IndexedSeq(IndexedSeq[Any]()))(cartesianProduct2(_, _)).distinct
   }
 
-  def rearrangementsUpTo[A](input: Seq[A], maxLength: Int,
+  def rearrangementsUpTo[A](input: Seq[A], maxLength: Int = -1,
                             onlyPermutations: Boolean = false,
-                            padIfNotLongEnough: Boolean): Seq[Seq[A]] =
+                            padIfNotLongEnough: Boolean): Seq[Seq[A]] = {
     upTo(rearrange(_: Seq[A], _: Int, onlyPermutations, padIfNotLongEnough))(input, maxLength)
+  }
 
-  def subSequencesUpTo[A](input: Seq[A], maxLength: Int): Seq[Seq[A]] =
+  def subSequencesUpTo[A](input: Seq[A], maxLength: Int = -1): Seq[Seq[A]] =
     upTo(subSequences(_: Seq[A], _: Int))(input, maxLength)
 
-  private def upTo[A](producer: (Seq[A], Int) => Seq[Seq[A]])(input: Seq[A], maxLength: Int): Seq[Seq[A]] =
-    (0 to maxLength).flatMap(length => producer(input, length)).distinct
+  private def upTo[A](producer: (Seq[A], Int) => Seq[Seq[A]])(input: Seq[A], maxLength: Int): Seq[Seq[A]] = {
+    val safeMaxLength = if (maxLength < 0) input.length else maxLength
+    (0 to safeMaxLength).flatMap(producer(input, _)).distinct
+  }
 
   def subSequences[A](input: Seq[A], length: Int): Seq[Seq[A]] =
     if (length < 0 || length > input.length)
@@ -160,4 +163,10 @@ object Combinatorics {
            Seq(Seq())
     else
       (for (i <- input.indices) yield input.slice(i, i + length)).distinct
+
+  def commonSubSequences[A](seq1: Seq[A], seq2: Seq[A]): Seq[Seq[A]] =
+    subSequencesUpTo(seq1).union(subSequencesUpTo(seq2)
+
+  def longestCommonSubSequence[A](seq1: Seq[A], seq2: Seq[A]): Seq[A] =
+    commonSubSequences(seq1, seq2).maxBy(_.length)
 }
