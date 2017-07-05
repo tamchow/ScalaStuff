@@ -165,7 +165,7 @@ object Combinatorics {
       (for (i <- input.indices) yield input.slice(i, i + length)).distinct
 
   def commonConsecutiveSubSequences[A](seq1: Seq[A], seq2: Seq[A]): Seq[Seq[A]] =
-    consecutiveSubSequencesUpTo(seq1).union(consecutiveSubSequencesUpTo(seq2))
+    consecutiveSubSequencesUpTo(seq1).intersect(consecutiveSubSequencesUpTo(seq2))
 
   def longestCommonConsecutiveSubSequence[A](seq1: Seq[A], seq2: Seq[A]): Seq[A] =
     commonConsecutiveSubSequences(seq1, seq2).maxBy(_.length)
