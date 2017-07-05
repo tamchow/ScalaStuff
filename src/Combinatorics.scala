@@ -148,15 +148,15 @@ object Combinatorics {
     upTo(rearrange(_: Seq[A], _: Int, onlyPermutations, padIfNotLongEnough))(input, maxLength)
   }
 
-  def subSequencesUpTo[A](input: Seq[A], maxLength: Int = -1): Seq[Seq[A]] =
-    upTo(subSequences(_: Seq[A], _: Int))(input, maxLength)
+  def consecutiveSubSequencesUpTo[A](input: Seq[A], maxLength: Int = -1): Seq[Seq[A]] =
+    upTo(consecutiveSubSequences(_: Seq[A], _: Int))(input, maxLength)
 
   private def upTo[A](producer: (Seq[A], Int) => Seq[Seq[A]])(input: Seq[A], maxLength: Int): Seq[Seq[A]] = {
     val safeMaxLength = if (maxLength < 0) input.length else maxLength
     (0 to safeMaxLength).flatMap(producer(input, _)).distinct
   }
 
-  def subSequences[A](input: Seq[A], length: Int): Seq[Seq[A]] =
+  def consecutiveSubSequences[A](input: Seq[A], length: Int): Seq[Seq[A]] =
     if (length < 0 || length > input.length)
       throw new IllegalArgumentException(lengthOutOfRangeErrorMessage)
     else if (length == 0)
@@ -164,9 +164,25 @@ object Combinatorics {
     else
       (for (i <- input.indices) yield input.slice(i, i + length)).distinct
 
-  def commonSubSequences[A](seq1: Seq[A], seq2: Seq[A]): Seq[Seq[A]] =
-    subSequencesUpTo(seq1).union(subSequencesUpTo(seq2)
+  def commonConsecutiveSubSequences[A](seq1: Seq[A], seq2: Seq[A]): Seq[Seq[A]] =
+    consecutiveSubSequencesUpTo(seq1).union(consecutiveSubSequencesUpTo(seq2))
 
-  def longestCommonSubSequence[A](seq1: Seq[A], seq2: Seq[A]): Seq[A] =
-    commonSubSequences(seq1, seq2).maxBy(_.length)
+  def longestCommonConsecutiveSubSequence[A](seq1: Seq[A], seq2: Seq[A]): Seq[A] =
+    commonConsecutiveSubSequences(seq1, seq2).maxBy(_.length)
+
+  def longestCommonSubSequence(str1: String, str2: String): String =
+    longestCommonSubSequence[Char](str1, str2).mkString("")
+
+  import collection.GenSeq
+
+  def longestCommonSubSequence[A](seq1: GenSeq[A], seq2: GenSeq[A]): GenSeq[A] =
+    if (seq1.isEmpty || seq2.isEmpty) seq1.companion.empty[A]
+    else {
+      val (i, j) = (seq1.size - 1, seq2.size - 1)
+      if (seq1(i) == seq2(j))
+        longestCommonSubSequence(seq1.slice(0, i), seq2.slice(0, j)) :+ seq1(i)
+      else
+        GenSeq(longestCommonSubSequence(seq1.slice(0, i + 1), seq2.slice(0, j)),
+               longestCommonSubSequence(seq1.slice(0, i), seq2.slice(0, j + 1))).maxBy(_.length)
+    }
 }
