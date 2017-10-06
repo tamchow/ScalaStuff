@@ -1,5 +1,3 @@
-import sun.security.util.Length
-
 /**
   * A module containing implicit enhancements to [[scala.Seq]]
   */
@@ -118,12 +116,12 @@ object Combinatorics {
       val allStarts = for(i <- 0 until other.length) yield (other(i) +: (if (onlyPermutations) (other - i) else other))
       (for(started <- allStarts) yield {
         started match {
-          case head +: tail => (for(subtail <- rearrange(tail)) yield head +: subtail).toSet
+          case head +: tail => (for(subTail <- rearrange(tail)) yield head +: subTail).toSet
         }
       }).flatten.distinct
     }*/
 
-  implicit class LongWithFactorial(val base: Long) extends AnyVal {
+   private implicit class LongWithFactorial(val base: Long) extends AnyVal {
     def ! : Long = factorial
 
     def factorial: Long = {
@@ -142,7 +140,7 @@ object Combinatorics {
 
   def numberOfCombinations(total: Long, selected: Long): Long = numberOfPermutations(total, selected) / (selected !)
 
-  def constrainedLength(input: Seq[_], padded: Boolean, length: Int) = if (padded) length else input.length
+  private def constrainedLength(input: Seq[_], padded: Boolean, length: Int) = if (padded) length else input.length
 
   def permutations[A](input: Seq[A], length: Int,
                       padIfNotLongEnough: Boolean): Seq[Seq[A]] = {
