@@ -1,3 +1,5 @@
+import sun.security.util.Length
+
 /**
   * A module containing implicit enhancements to [[scala.Seq]]
   */
@@ -17,7 +19,7 @@ object SeqHelpers {
       * @return A copy of this [[scala.Seq]] with the element at index `index` removed
       * @see [[RicherSeq.removeAt]]
       */
-    def -(index: Int): Seq[A] = removeAt(index)
+    def /-(index: Int): Seq[A] = removeAt(index)
 
     /**
       * Removes the element at the given index
@@ -36,6 +38,24 @@ object SeqHelpers {
         }
 
     /**
+      * Operator alias of [[RicherSeq.removeAt]]
+      *
+      * @param element The element to remove
+      * @return A copy of this [[scala.Seq]] with the element `element` removed
+      * @see [[RicherSeq.removeAt]]
+      */
+    def -(element: A): Seq[A] = remove(element)
+
+    /**
+      * Removes the element `element`
+      *
+      * @param element The element to remove
+      * @return A copy of this [[scala.Seq]] with the element `element` removed
+      */
+    def remove(element: A): Seq[A] =
+      input.filter(_ != element)
+
+    /**
       * Compares this [[scala.Seq]] with another for equality disregarding order
       *
       * @param other The [[scala.Seq]] to compare with this [[scala.Seq]] for order-independent equality
@@ -47,6 +67,11 @@ object SeqHelpers {
       other.forall(element => input contains element)
   }
 
+  def toPlainString(input: Seq[Any]): String =
+    (for (item <- input) yield item match {
+      case subSeq: Seq[Any] => toPlainString(subSeq)
+      case other => other.toString
+    }).mkString("(", ", ", ")")
 }
 
 /**
@@ -77,12 +102,69 @@ object Combinatorics {
     else if (padIfNotLongEnough && length > input.length)
            rearrange(pad(input, length), length, onlyPermutations, padIfNotLongEnough = false)
     else if (length == 0)
-           Seq(Seq())
+           IndexedSeq(IndexedSeq())
     else
       (for (i <- input.indices) yield {
         val head = input(i)
-        for (tail <- rearrange(if (onlyPermutations) input - i else input, length - 1, onlyPermutations, padIfNotLongEnough)) yield head +: tail
+        for (tail <- rearrange(if (onlyPermutations) input /- i else input, length - 1, onlyPermutations, padIfNotLongEnough)) yield head +: tail
       }).flatten.distinct
+
+  // Legacy code - keep it for nostalgia
+  /*input match {
+    case Seq() => Set(Seq())
+    case Seq(x) => Set(Seq(x))
+    case Seq(x, y) => Set(Seq(x, y), Seq(y, x))
+    case other =>
+      val allStarts = for(i <- 0 until other.length) yield (other(i) +: (if (onlyPermutations) (other - i) else other))
+      (for(started <- allStarts) yield {
+        started match {
+          case head +: tail => (for(subtail <- rearrange(tail)) yield head +: subtail).toSet
+        }
+      }).flatten.distinct
+    }*/
+
+  implicit class LongWithFactorial(val base: Long) extends AnyVal {
+    def ! : Long = factorial
+
+    def factorial: Long = {
+      if (base < 0) throw new IllegalArgumentException(s"Factorial of a negative integer $base is not defined")
+
+      def factorialAcc(current: Long, acc: Long): Long = current match {
+        case 0 => acc
+        case _ => acc * factorialAcc(current - 1, current)
+      }
+
+      factorialAcc(base, 1)
+    }
+  }
+
+  def numberOfPermutations(total: Long, selected: Long): Long = if (total >= selected) (total !) / ((total - selected) !) else 0
+
+  def numberOfCombinations(total: Long, selected: Long): Long = numberOfPermutations(total, selected) / (selected !)
+
+  def constrainedLength(input: Seq[_], padded: Boolean, length: Int) = if (padded) length else input.length
+
+  def permutations[A](input: Seq[A], length: Int,
+                      padIfNotLongEnough: Boolean): Seq[Seq[A]] = {
+    val result = rearrange(input, length, onlyPermutations = true, padIfNotLongEnough = padIfNotLongEnough)
+    require(result.length == numberOfPermutations(constrainedLength(input, padIfNotLongEnough, length), length))
+    result
+  }
+
+  def permutations[A](input: Seq[A],
+                      padIfNotLongEnough: Boolean): Seq[Seq[A]] =
+    permutations(input, input.length, padIfNotLongEnough)
+
+  def combinations[A](input: Seq[A], length: Int,
+                      padIfNotLongEnough: Boolean): Seq[Seq[A]] = {
+    val result = rearrange(input, length, onlyPermutations = true, padIfNotLongEnough = padIfNotLongEnough).map(_.toSet).distinct.map(_.toIndexedSeq)
+    require(result.length == numberOfCombinations(constrainedLength(input, padIfNotLongEnough, length), length))
+    result
+  }
+
+  def combinations[A](input: Seq[A],
+                      padIfNotLongEnough: Boolean): Seq[Seq[A]] =
+    combinations(input, input.length, padIfNotLongEnough)
 
   /**
     * Produces all possible rearrangements of the elements of the `input` [[scala.Seq]] of length equal to `input.length`.
@@ -114,20 +196,6 @@ object Combinatorics {
            input take length
     else
       input ++: pad(input, length - input.length)
-
-  // Legacy code - keep it for nostalgia
-  /*input match {
-    case Seq() => Set(Seq())
-    case Seq(x) => Set(Seq(x))
-    case Seq(x, y) => Set(Seq(x, y), Seq(y, x))
-    case other =>
-      val allStarts = for(i <- 0 until other.length) yield (other(i) +: (if (onlyPermutations) (other - i) else other))
-      (for(started <- allStarts) yield {
-        started match {
-          case head +: tail => (for(subtail <- rearrange(tail)) yield head +: subtail).toSet
-        }
-      }).flatten.distinct
-    }*/
 
   def cartesianProduct[S](vectors: Traversable[S]*): Traversable[Seq[_]] =
     cartesianProductMultiType(vectors)
