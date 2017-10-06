@@ -32,7 +32,7 @@ object SeqHelpers {
         input match {
           // Optimize for collections which have a `remove` method already
           case mutable: collection.mutable.Buffer[A] => mutable.remove(index); mutable
-          case _ => input.indices.filter(_ != index).map(i => input(i))
+          case _ => input.indices.filter(_ != index).map(input(_))
         }
 
     /**
@@ -62,7 +62,7 @@ object SeqHelpers {
       */
     def equalsIgnoreOrder[B >: A](other: Seq[B]): Boolean =
       input.length == other.length &&
-      other.forall(element => input contains element)
+      other.forall(input contains _)
   }
 
   def toPlainString(input: Seq[Any]): String =
