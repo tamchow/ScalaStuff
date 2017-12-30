@@ -164,10 +164,9 @@ object MathUtils {
 
   object Polynomial {
     def apply(coefficients: Seq[Complex]): Polynomial =
-      Polynomial(coefficients.indices
-                   .zip(coefficients)
+      Polynomial(coefficients.zipWithIndex
                    .map {
-                          case (n, a) => (Complex(n), a)
+                          case (a, n) => (Complex(n), a)
                         }.toMap)
 
     def apply(coefficients: String): Polynomial = Polynomial(coefficients.split("\\s+").map(Complex(_)))
@@ -284,7 +283,7 @@ object MathUtils {
         val finalColor = shadedColor.interpolate(interpolationColor, iterations % 1)
         if (iterations.isNaN) println(iterations, x, y)
         imgWriter.setColor(x, y, finalColor)
-        if (progress.getAndIncrement % width == 0) println(s"${progress.get * progressMultiplier}% completed")
+        if (progress.getAndIncrement % width == 0) println(f"${progress.get * progressMultiplier}%.4f%% completed")
       }))
       println(s"Max Iterations: $currentMaxIterations")
       println(s"${roots.size} roots:")
