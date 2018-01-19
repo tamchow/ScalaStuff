@@ -3,6 +3,7 @@ import javafx.embed.swing.SwingFXUtils
 import javafx.scene.image.{Image, WritableImage}
 import javafx.scene.paint.Color
 
+import scala.annotation.tailrec
 import scala.language.implicitConversions
 
 object MathUtils {
@@ -10,7 +11,7 @@ object MathUtils {
 
   object Complex {
     type Complex = (Double, Double)
-    val (_0, _1, i): (Complex, Complex, Complex) = ((0, 0), (1, 0), (0, 1))
+    val (_0, _1, i, e): (Complex, Complex, Complex, Complex) = ((0, 0), (1, 0), (0, 1), math.E)
 
     def apply(repr: String): Complex =
       if (repr.startsWith("i")) (0.0, repr.tail.toDouble)
@@ -25,7 +26,11 @@ object MathUtils {
       def toComplex: Complex = (real, 0)
     }
 
+    implicit def DoubleAsComplex(real: Double): Complex = real.toComplex
+
     implicit class ComplexOps(val base: Complex) extends AnyVal {
+      @inline def isReal: Boolean = imag < Epsilon
+
       @inline def real: Double = base._1
 
       @inline def imag: Double = base._2
@@ -77,7 +82,7 @@ object MathUtils {
 
       @inline def repr: String = s"${r}i$i"
 
-      @inline def str: String = if (i < Epsilon) s"$r" else if (r < Epsilon) s"${i}i" else s"$r,${i}i"
+      @inline def str: String = if (isReal) s"$r" else if (r < Epsilon) s"${i}i" else s"$r,${i}i"
 
       @inline def possibleZero_? : Boolean = base.cabs < Epsilon
 
@@ -156,8 +161,16 @@ object MathUtils {
     override lazy val toString: String =
       cleaned.foldRight("") {
                               case ((n, a), acc) =>
-                                acc + (if (acc.isEmpty) "" else " + ") +
-                                (if (n.possibleZero_?) a.str else s"${a.str} * x^${n.str}")
+                                if (a.isReal) {
+                                  val c = a.real
+                                  val abs_c = c.abs
+                                  acc + (if (acc.isEmpty) "" else if (c < 0) " - " else " + ") +
+                                  (if (n.possibleZero_?) abs_c else s"$abs_c * x^${n.str}")
+                                } else {
+                                  val str_a = a.str
+                                  acc + (if (acc.isEmpty) "" else " + ") +
+                                  (if (n.possibleZero_?) str_a else s"$str_a * x^${n.str}")
+                                }
                             }
 
   }
@@ -172,6 +185,16 @@ object MathUtils {
     def apply(coefficients: String): Polynomial = Polynomial(coefficients.split("\\s+").map(Complex(_)))
   }
 
+  def defaultIfNaN(value: Double, default: Double = 0.0): Double = if (value.isNaN) default else value
+
+  def clampHigh(max: Double)(value: Double): Double = value min max
+}
+
+object NewtonFractal {
+
+  import MathUtils._
+  import Complex._
+
   val PHI: Double = (1 + math.sqrt(5)) / 2
 
   def createColors(offset: Double = math.random)(n: Int): Seq[Color] =
@@ -181,7 +204,7 @@ object MathUtils {
     }
 
   case class NewtonFractal(width: Int, height: Int, scaleFactor: Double = 0.2, center: Complex = _0)
-                          (maxIterations: Int, smoothingBase: Option[Complex] = Some(math.E.toComplex))
+                          (maxIterations: Int, smoothingBase: Option[Complex] = Some(e))
                           (p: Polynomial, R: Complex = _1, c: Option[Complex] = Some(_0)) {
     private lazy val colors: Seq[Color] = createColors()(p.numRoots)
     private lazy val radius = p.rootBound * scaleFactor
@@ -204,47 +227,69 @@ object MathUtils {
 
     private def converged(zn: Complex) = root(zn).nonEmpty
 
-
     private val exponentialSmoothing = smoothingBase.isDefined
-    private val base = smoothingBase.getOrElse(math.E.toComplex)
+    private val base = smoothingBase.getOrElse(e)
+    private val clampIterations = clampHigh(maxIterations) _
 
     private def evaluate(x: Int, y: Int) = {
-      var (zn, zp, a) = (convertScreenCoordinates(x, y), _0, getC(x, y))
-      var i = 0
-      var expIter = _0
-      while (i < maxIterations && !(zn.veryClose_?(zp) || converged(zn))) {
-        zp = zn
-        zn = zp - R * (p(zn) / dp(zn)) + a
-        if (exponentialSmoothing) {
-          expIter += (base ^ (-zn.cabs - 0.5 / (zp - zn).cabs).toComplex)
-        }
-        i += 1
+      val (zn_0, zp_0, a) = (convertScreenCoordinates(x, y), _0, getC(x, y))
+
+      def newtonForwardStep(zn: Complex) = zn - R * (p(zn) / dp(zn)) + a
+
+      def stopIteration_?(iterations: Int, zn: Complex, zp: Complex) = iterations >= maxIterations || (zn.veryClose_?(zp) || converged(zn))
+
+      @tailrec
+      def iterateExponential(currentIteration: Int, zn: Complex, zp: Complex, expIterations: Complex):
+      (Int, Complex, Complex, Complex) = {
+        if (stopIteration_?(currentIteration, zn, zp))
+          (currentIteration, zn, zp, expIterations)
+        else
+          iterateExponential(currentIteration + 1,
+                             newtonForwardStep(zn),
+                             zn,
+                             expIterations + (base ^ (-zn.cabs - 0.5 / (zp - zn).cabs)))
       }
+
+      @tailrec
+      def iteratePlain(currentIteration: Int, zn: Complex, zp: Complex):
+      (Int, Complex, Complex, Complex) = {
+        if (stopIteration_?(currentIteration, zn, zp))
+          (currentIteration, zn, zp, _0)
+        else
+          iteratePlain(currentIteration + 1,
+                       newtonForwardStep(zn),
+                       zn)
+      }
+
+      val (i, zn, zp, expIterations) = if (exponentialSmoothing)
+                                         iterateExponential(0, zn_0, zp_0, _0)
+                                       else
+                                         iteratePlain(0, zn_0, zp_0)
       val rootZn = addAndGetRoot(i, zn)
-      val finalExpIter = expIter.abs
-      if (!exponentialSmoothing) {
+      val finalExpIterations = expIterations.abs
+      if (exponentialSmoothing) {
+        (clampIterations(defaultIfNaN(finalExpIterations, i)), rootZn)
+      } else {
         val rootZnOr0 = rootZn.getOrElse(_0)
         val logD0 = math.log((zp - rootZnOr0).cabs)
         val logDist = if (i < maxIterations) ((logEpsilon - logD0) / (math.log((zn - rootZnOr0).cabs) - logD0)).abs else 0.0
-        ((i + (if (logDist.isNaN) 0.0 else logDist)) min maxIterations, rootZn)
-      } else {
-        (if (finalExpIter.isNaN) i else finalExpIter min maxIterations, rootZn)
+        (clampIterations(i + defaultIfNaN(logDist)), rootZn)
       }
     }
 
     private def addAndGetRoot(iterations: Int, zn: Complex) = {
       classOf[NewtonFractal].synchronized {
-                     if (iterations < maxIterations && !converged(zn) && roots.size < p.numRoots) {
-                       if (zn.veryClose_?(_0) && !p.zeroIsValidRoot) {
-                         root(zn)
-                       } else {
-                         roots += zn
-                         Some(zn)
-                       }
-                     } else {
-                       root(zn)
-                     }
-                   }
+                                            if (iterations < maxIterations && !converged(zn) && roots.size < p.numRoots) {
+                                              if (zn.veryClose_?(_0) && !p.zeroIsValidRoot) {
+                                                root(zn)
+                                              } else {
+                                                roots += zn
+                                                Some(zn)
+                                              }
+                                            } else {
+                                              root(zn)
+                                            }
+                                          }
 
     }
 
