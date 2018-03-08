@@ -348,4 +348,10 @@ object NewtonFractal {
     }
   }
 
+  def main(args: Array[String]): Unit = {
+    val pol3 = Polynomial("1 0 0 1")
+    val pol9 = Polynomial("0 315 0 -420 0 378 0 -180 0 35")
+    val fractal = NewtonFractal(1000, 1000, 1.5)(64)(pol9)
+    fractal.generateAndSave(new java.io.File("image.png"))
+  }
 }
