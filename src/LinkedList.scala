@@ -12,10 +12,10 @@ object LinkedLists {
     final override lazy val toString: String = {
       @tailrec
       def represent[B >: T](accumulator: String, list: LinkedList[B], printType: Boolean): String = list match {
-        case `[]` => if (!accumulator.isEmpty) accumulator else ""
+        case `[]` => if (accumulator.nonEmpty) accumulator else ""
         case x :: xs =>
           val typeInfo = if (printType) s"[${x.getClass.getName}] " else ""
-          represent(s"""$accumulator${if (!accumulator.isEmpty) ", " else ""}$typeInfo$x""", xs, printType)
+          represent(s"""$accumulator${if (accumulator.nonEmpty) ", " else ""}$typeInfo$x""", xs, printType)
       }
 
       val globalTypeInfo = commonSuperclassOfElements.getName
@@ -78,7 +78,7 @@ object LinkedLists {
 
     override lazy val hashCode: Int = toString.##
 
-    final override def compare(that: LinkedList[_]): Int = toString compareTo (that toString)
+    final override def compare(that: LinkedList[_]): Int = this.toString compareTo that.toString
 
     final def :::[B >: T](items: LinkedList[B]): LinkedList[B] = concatenated(items)
 
@@ -190,12 +190,12 @@ object LinkedLists {
           case _ :: xs => search(accumulator + 1, xs, resultAccumulator)
         }
 
-        ~search(0, other, `[]`)
+        search(0, other, `[]`).reversed
     }
 
     final def :+[B >: T](item: B): LinkedList[B] = appended(item)
 
-    final def appended[B >: T](item: B): LinkedList[B] = ~new ::(item, ~this)
+    final def appended[B >: T](item: B): LinkedList[B] = (new ::(item, reversed)).reversed
 
     final def apply(idx: Int): Option[T] =
       if (idx < 0 || idx >= length)
@@ -269,7 +269,7 @@ object FunctionalDataStructures {
     */
   type Stack[T] = LinkedList[T]
 
-  /**
+  /*
     * Implements a functional double-ended queue
     */
   type DEQueue[T] = LinkedList[T]
@@ -294,7 +294,7 @@ object FunctionalDataStructures {
 
     def apply[T](items: T*): Stack[T] = LinkedList.fromList(items.toList)
 
-    def pop[T](stack: Stack[T]): Stack[T] = stack \-
+    def pop[T](stack: Stack[T]): Stack[T] = stack.\-
 
     def dup[T](stack: Stack[T]): Stack[T] = peek(stack) match {
       case None => stack
@@ -303,7 +303,7 @@ object FunctionalDataStructures {
 
     def push[T](stack: Stack[T])(item: T): Stack[T] = item :: stack
 
-    def peek[T](stack: Stack[T]): Option[T] = stack head
+    def peek[T](stack: Stack[T]): Option[T] = stack.head
   }
 
   object DEQueue {
@@ -316,17 +316,17 @@ object FunctionalDataStructures {
 
     def enqueueEnd[T](dequeue: DEQueue[T])(item: T): DEQueue[T] = dequeue :+ item
 
-    def dequeueEnd[T](dequeue: DEQueue[T]): DEQueue[T] = dequeue /-
+    def dequeueEnd[T](dequeue: DEQueue[T]): DEQueue[T] = dequeue./-
 
-    def peekEnd[T](dequeue: DEQueue[T]): (Option[T]) = dequeue last
+    def peekEnd[T](dequeue: DEQueue[T]): Option[T] = dequeue.last
 
     final def dequeue[T](dequeue: DEQueue[T]): DEQueue[T] = dequeueFront(dequeue)
 
-    def dequeueFront[T](dequeue: DEQueue[T]): DEQueue[T] = dequeue \-
+    def dequeueFront[T](dequeue: DEQueue[T]): DEQueue[T] = dequeue.\-
 
-    def peek[T](dequeue: DEQueue[T]): (Option[T]) = peekFront(dequeue)
+    def peek[T](dequeue: DEQueue[T]): Option[T] = peekFront(dequeue)
 
-    def peekFront[T](dequeue: DEQueue[T]): (Option[T]) = dequeue head
+    def peekFront[T](dequeue: DEQueue[T]): Option[T] = dequeue.head
   }
 
 }
@@ -336,6 +336,7 @@ object Main {
   import scala.io.StdIn.{readChar => rc, readLine => rl}
   import LinkedLists._
 
+  @tailrec
   def demoFunction(op: Char, item: String, linkedList: LinkedList[String] = `[]`): Unit =
     op match {
       case '+' => val newList = item :: linkedList; println(newList.toString + " => " + newList.toList); demoFunction(rc, rl, newList)
